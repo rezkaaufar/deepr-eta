@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate dummy data
+        run: python data/generate_dummy_data.py --rows 1000 --seed 42
+
+      - name: Smoke test — import ETADataset and load a batch
+        run: |
+          python - <<'EOF'
+          import yaml
+          from torch.utils.data import DataLoader
+          from data.dataset import ETADataset
+
+          # Load config and the CSV written by the previous step
+          with open("config/default_config.yaml") as f:
+              config = yaml.safe_load(f)
+
+          csv_path = "data/dummy_data.csv"
+          dataset = ETADataset(data_path=csv_path, config=config, train=True)
+          loader = DataLoader(dataset, batch_size=32, shuffle=False)
+          features, labels = next(iter(loader))
+          print(f"Smoke test passed — feature keys: {list(features.keys())}")
+          print(f"Label batch shape: {labels.shape}")
+          print(f"Dataset length: {len(dataset)}")
+          EOF
+
+      - name: Run existing tests
+        if: ${{ hashFiles('tests/**') != '' }}
+        run: |
+          pip install pytest
+          python -m pytest tests/ -v
