@@ -1,0 +1,87 @@
+# DeeprETA default configuration
+# All hyperparameters referenced in PLAN.md
+
+# ── Embedding ────────────────────────────────────────────────────────────────
+embedding:
+  d_model: 16                   # embedding dimension shared across all feature tables
+  hash_bucket_size: 100000      # number of buckets for geospatial feature hashing
+
+# ── Quantile Bucketization ────────────────────────────────────────────────────
+quantile:
+  n_buckets: 256                # number of quantile bins for all continuous features
+
+# ── Geospatial Encoding ───────────────────────────────────────────────────────
+geospatial:
+  geohash_resolutions: [4, 5, 6, 7]   # precision levels: ~39km, ~5km, ~1.2km, ~153m
+  hash_seeds: [0, 42]                  # MurmurHash3 seeds for two independent hash functions
+  # spatial contexts: origin, destination, origin+destination pair
+  # total lookups per row: 4 resolutions × 2 seeds × 3 contexts = 24
+
+# ── Categorical Feature Vocabularies ─────────────────────────────────────────
+vocab_sizes:
+  day_of_week: 7                # 0–6
+  minute_of_week: 10080         # 0–10079 (7 days × 24 hours × 60 minutes)
+  trip_type: 8                  # placeholder; adjust to actual cardinality
+  route_type: 16                # placeholder; adjust to actual cardinality
+  request_type: 4               # placeholder; adjust to actual cardinality
+  country_id: 100               # placeholder; adjust to actual cardinality
+  region_id: 500                # placeholder; adjust to actual cardinality
+  city_id: 2000                 # placeholder; adjust to actual cardinality
+
+# ── Continuous Features ───────────────────────────────────────────────────────
+continuous_features:
+  - minute_of_day               # 0–1439, temporal
+  - re_eta                      # routing engine ETA in seconds
+  - estimated_distance          # route distance in meters
+  - realtime_speed              # real-time average speed
+  - historical_speed            # historical average speed
+
+# ── Categorical Features ──────────────────────────────────────────────────────
+categorical_features:
+  - day_of_week
+  - minute_of_week
+  - trip_type
+  - route_type
+  - request_type
+  - country_id
+  - region_id
+  - city_id
+
+# ── Geospatial Feature Pairs ──────────────────────────────────────────────────
+geospatial_feature_pairs:
+  origin: [origin_lat, origin_lng]
+  destination: [destination_lat, destination_lng]
+
+# ── Model Architecture ────────────────────────────────────────────────────────
+model:
+  d_head: 4                     # key/query/value head dimension for linear attention
+  fc_hidden_size: 2048          # fully connected decoder hidden layer size
+
+# ── Calibration ───────────────────────────────────────────────────────────────
+calibration:
+  # segment = request_type × trip_type cross product
+  n_segments: 32                # placeholder; set to |request_type| × |trip_type|
+
+# ── Loss Function ─────────────────────────────────────────────────────────────
+loss:
+  delta: 1.0                    # Huber transition point (seconds)
+  omega: 0.4                    # overprediction weight; < 0.5 penalizes late arrivals more
+
+# ── Training ──────────────────────────────────────────────────────────────────
+training:
+  optimizer: adam
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-5
+  lr_scheduler: cosine          # cosine annealing
+  max_epochs: 20
+  batch_size: 4096
+  gradient_clip_norm: 1.0
+  val_fraction: 0.1             # sequential 90/10 train/val split
+  num_workers: 4                # DataLoader workers
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+data:
+  max_actual_travel_time: 7200  # seconds; rows with ATA > 7200s are dropped (outliers)
+  label_col: actual_travel_time
+  re_eta_col: re_eta
+  bucketizer_dir: artifacts/bucketizers  # directory to save fitted QuantileBucketizer files
