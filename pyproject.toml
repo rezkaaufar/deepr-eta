@@ -1,0 +1,19 @@
+[project]
+name = "deepr-eta"
+version = "0.1.0"
+description = "Implementing DeeprETA -- Uber's Neural ETA Prediction Model (arXiv:2206.02127)"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas",
+    "pyarrow",
+    "numpy",
+    "requests",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
